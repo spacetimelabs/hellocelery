@@ -1,0 +1,55 @@
+version: "2"
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.7-management
+    container_name: rabbitmqh
+    network_mode: "host"
+    depends_on:
+      - redis  
+    environment:
+      RABBITMQ_DEFAULT_USER: ${BROKER_USER}
+      RABBITMQ_DEFAULT_PASS: ${BROKER_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${BROKER_VHOST}
+    ports:
+      - 15672:15672
+      - 5672:5672
+
+  redis:
+    container_name: redis4hello
+    image: redis
+    network_mode: "host"
+    entrypoint: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - 6379:6379
+
+  worker:
+    build: .
+    command: ["sleep", "infinity"]
+    #celery worker --app hello.tasks --broker $BROKER_URL --result-backend $RESULT_BACKEND_URL --hostname hello@%h --loglevel=INFO --task-events -Ofair  -c 1 -Q hello
+    container_name: hello_worker
+    network_mode: "host"
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      BROKER_URL: ${BROKER_URL}
+      RESULT_BACKEND_URL: ${RESULT_BACKEND_URL}
+      PYTHONPATH: /app
+    volumes:
+      - .:/app
+
+
+  flower:
+    container_name: flower
+    build: .
+    entrypoint: celery flower -A hello.tasks --broker=${BROKER_URL} --port=8889
+    network_mode: "host"
+    depends_on:
+      - rabbitmq
+    volumes:
+      - .:/app
+    environment:
+      PYTHONPATH: /app
+    ports:
+      - "8889:8889"
