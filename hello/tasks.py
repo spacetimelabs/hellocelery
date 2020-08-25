@@ -1,6 +1,7 @@
 import time
 from celery import Celery
 from hello import settings
+from hello import core
 
 app = Celery(
     broker=settings.BROKER_URL,
@@ -35,3 +36,11 @@ def is_odd(self, number):
 @app.task(bind=True, name='hello.send_notification')
 def send_notification(self):
     return 'Success'
+
+
+@app.task(bind=True, name='hello.unstable_task',
+          autoretry_for=(Exception,),
+          default_retry_delay=2,
+          retry_kwargs={'max_retries': 3})
+def unstable_task(self, inputs):
+    core.run_unstable_task('a')
